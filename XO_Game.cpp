@@ -9,10 +9,7 @@
 #include "include\hgesprite.h"
 #include "include\hgecolor.h"
 
-
 HGE *hge = 0; 
-HWND HWnd = 0; // Second window
-bool bInitialize_secondWindow = false;
 
 HEFFECT XO_Music = 0;
 HEFFECT XO_Winning = 0;
