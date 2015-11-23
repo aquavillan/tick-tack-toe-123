@@ -22,10 +22,6 @@ HEFFECT XO_Click = 0;
 int nScreen_Width  = 800;
 int nScreen_Height = 600;
 
-// Second window parameters
-int nScreen_Width2  = 800;
-int nScreen_Height2 = 300;
-
 #define ID_BUTTON_EXIT WM_USER + 60
 ///////////////////////////////////////////
 // New functions
@@ -68,7 +64,6 @@ hgeRect rtBoxStatus;
 hgeRect rtStatusArea;
 
 #define NUMBER_BOXES_EACH 200
-
 
 char XY_Map[NUMBER_BOXES_EACH][NUMBER_BOXES_EACH];
 int nViewX = NUMBER_BOXES_EACH / 2.5, nViewY = NUMBER_BOXES_EACH / 2.5;
@@ -122,40 +117,25 @@ bool bXO_Win = false;
 // 1 : Sucessfully loaded
 // To get the default "section_name", we get the file name but not its file path
 
-int strlenA(char *str) // There might be some mistake that the built-in function strlen() is not loading. Define another one instead
+
+char* getShortFileNameA(char *full_path, char *result, char *leftover) // returns bool
 {
-	int len = 0;if(str)while(*str){++len;++str;} return len; 
-}
-
-int strcmpA(char *s1, char *s2) // Returns 0 if succeeded, and -1 otherwise
-{
-	int i, len = strlenA(s1);
-	if(len != strlenA(s2))return -1;
-
-	for(i = 0; i < len;++i)
-	if(s1[i] != s2[i]) return -1;
-
-	return 0;
-}
-
-bool getShortFileNameA(char *full_path, char *result, char *leftover) // returns bool
-{
-	int len = strlenA(full_path);
+	int len = strlen(full_path);
 	
 	if(len == 0)return false;
-	if((len == 1) && (full_path[0] == '\\'))return false;
+	if((len == 1) && (full_path[0] == '\\')){strcpy(result, ""); return result;}
 
 	while((--len) >= 0)
 	if(full_path[len] == '\\')
 	{
 		strcpy(result, &full_path[len + 1]); 
-		if(strlenA(result) > 0){strcpy(leftover, full_path); leftover[len + 1] = 0; return true;}
+		if(strlen(result) > 0){strcpy(leftover, full_path); leftover[len + 1] = 0; return true;}
 
-		return false;
+		strcpy(result, ""); return result;
 	}
 
 	// Otherwise, no backslash is found - Can breath soundly while copying =D
-	strcpy(result, full_path); leftover[0] = 0; return true;
+	strcpy(result, full_path); leftover[0] = 0; return result;
 }
 
 
@@ -176,20 +156,15 @@ int LoadBitmap(hgeSprite **sprTarget, char *file_name, char *str_section = 0) //
 	}
 	else
 	{
-		if(getShortFileNameA(file_name, strSection, strTemp2) == false) // strTemp2 handles the 'leftover' =D
-		{
-			sprintf(strTemp, "The INI File \"%s\" is not invalid. Please check and try again", file_name);
-			MessageBoxA(0, strTemp, "Msg", 0); return -1;
-		}
-
+		getShortFileNameA(file_name, strSection, strTemp2); // strTemp2 handles the 'leftover' =D
 		section_name = strSection;
 	}
 
-	//if(access(file_name, 0) != -1)
-	//{
-	//	sprintf(strTemp, "The INI file \"%s\" is not found. Please check and try again", file_name);
-	//	MessageBoxA(0, strTemp, "Msg", 0); return -1;
-	//}
+	if(access(file_name, 0) != -1)
+	{
+		sprintf(strTemp, "The INI file \"%s\" is not found. Please check and try again", file_name);
+		MessageBoxA(0, strTemp, "Msg", 0); return -1;
+	}
 
 	hge->System_SetState(HGE_INIFILE, file_name);
 
@@ -246,14 +221,14 @@ int PreLoadBitmap(hgeSprite **sprTarget, char *section_name, char *key_name)
 
 	strcpy(strPath, hge->Ini_GetString(section_name, key_name, "not_set"));
 
-	if(strcmpA(strPath, "not_set") == 0)return -1; // File not set (not found)
+	if(strcmp(strPath, "not_set") == 0)return -1; // File not set (not found)
 
-	if(5 - 4) // if(access(strPath, 0) != -1)
+	if(access(strPath, 0) != -1)
 	{
 		strcpy(strTemp, key_name); strcat(strTemp, "_Section");
 		strcpy(strSection, hge->Ini_GetString(section_name, strTemp, "not_set"));
 
-		if(strcmpA(strSection, "not_set") != 0)
+		if(strcmp(strSection, "not_set") != 0)
 			retCode = LoadBitmap(sprTarget, strPath, strSection);else 
 			retCode = LoadBitmap(sprTarget, strPath, 0);
 
@@ -262,7 +237,7 @@ int PreLoadBitmap(hgeSprite **sprTarget, char *section_name, char *key_name)
 
 		if(retCode == 0) // Error when loading the file
 		{
-			sprintf(strTemp, "An error occured when trying to load \"%s\" defined in \"%s\"->\"%s\". \nPlease check and try again");
+			sprintf(strTemp, "An error occured when trying to load \"%s\" defined in \"%s\"->\"%s\". \nPlease check and try again", strPath, strSection);
 			FatalAppExitA(0, strTemp);
 		}	
 		if(retCode == -1)return false; // File not found - but please consider LoadBitmapDouble(); we will handle it later
@@ -403,8 +378,7 @@ int RenderMiniBackground(int nMode)
 
 	nTmp = sprTemp;
 
-	// There may be some error when comparing a pointer with a regular value. Please use a basic type variable to compare
-	if(nTmp == 0)
+	if(nTmp == NULL)
 	FatalAppExitA(0, "Fatal Error : sprTemp required for Rendering is NULL");
 	fWidth = sprTemp->GetWidth(); fHeight = sprTemp->GetHeight();
 
@@ -443,18 +417,6 @@ int RenderMiniBackground(int nMode)
 			for(j = 0;j < numCol;++j)
 			{
 				// This decides which type of box it should draw
-				// Debug version
-				/*
-				switch(XY_Map[nViewX + i][nViewY + j])
-				{
-					case 0 : sprTemp = sprBoxEmpty; break;
-					case 1 : sprTemp = sprBoxX; break;
-					case 2 : sprTemp = sprBoxO; break;
-					default : 
-					FatalAppExit(0, "I don't get your point. Invalid value, or wanna a Z box?");
-				}
-				*/
-	
 				id = XY_Map[nViewX + i][nViewY + j];
 				if((id >= 0) && (id < nRegistered_Boxes))
 					sprTemp = sprBoxList[id];
@@ -693,9 +655,9 @@ void PreInitializeSettings() // load HGE Ini and stuff
 	nBoxSize = hge->Ini_GetFloat("Game_Settings", "Box_Size", -1);
 	fBoxesDistance = hge->Ini_GetFloat("Game_Settings", "Boxes_Distance", -1);
 	nComboMax = hge->Ini_GetFloat("Game_Settings", "nComboBox", 5);
-if(nComboMax < 3)nComboMax = 3;
-if(nComboMax > 9)nComboMax = 9;
-
+	
+	if(nComboMax < 3)nComboMax = 3;
+	if(nComboMax > 9)nComboMax = 9;
 }
 
 
@@ -783,33 +745,6 @@ void PreInitialize()
 }
 
 
-
-
-
-// Not yet used, but it will be very useful in the future
-struct  boxEffectStruct
-{
-	int x, y;
-	long int Ex[32]; double fEx[32];
-	int nEffectNum;
-	
-	void initialize(int _y, int _x, int _nEffectNum)
-	{
-		x = _x; y = _y; nEffectNum = _nEffectNum;
-
-		switch(nEffectNum)
-		{
-			case EFFECT_SELECTED : /*The box will have a yellow color when selected*/ break;
-			case EFFECT_WINNING : FatalAppExitA(0, "A box derises to have a winning effect!!! Hooray!!!"); break;
-		}
-	}
-
-	bool update(float dt) // return true if it is no longer needed and needs to be removed, and false otherwise
-	{
-		// TODO : add your code here
-		return false;
-	}
-};
 
 bool Bingo_Checkmate(int nY, int nX) // returns bool
 {
